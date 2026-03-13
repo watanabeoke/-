@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Periodic Table</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c12;
+    --surface: #0d1420;
+    --border: rgba(100,160,255,0.12);
+    --glow: rgba(80,160,255,0.35);
+    --text: #c8d8f0;
+    --text-dim: #5a7090;
+    --accent: #4da8ff;
+
+    --alkali: #ff6b6b;
+    --alkaline: #ff9f43;
+    --transition: #54a0ff;
+    --post-transition: #48dbfb;
+    --metalloid: #1dd1a1;
+    --nonmetal: #feca57;
+    --halogen: #ff9ff3;
+    --noble: #c56cf0;
+    --lanthanide: #fd9644;
+    --actinide: #e84393;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: auto;
+    background-image: 
+      radial-gradient(ellipse 80% 40% at 50% -10%, rgba(30,80,160,0.25) 0%, transparent 70%),
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(100,160,255,0.03) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(100,160,255,0.03) 40px);
+  }
+
+  header {
+    text-align: center;
+    padding: 2rem 1rem 1rem;
+    position: relative;
+  }
+
+  .title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: clamp(2rem, 5vw, 4rem);
+    letter-spacing: 0.2em;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 60%, #c56cf0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 0 30px rgba(77,168,255,0.4));
+  }
+
+  .subtitle {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 0.3em;
+    margin-top: 0.3rem;
+    text-transform: uppercase;
+  }
+
+  /* Filters */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    padding: 1rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .filter-btn {
+    padding: 0.35rem 0.85rem;
+    border-radius: 2rem;
+    border: 1px solid;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .filter-btn:hover {
+    filter: brightness(1.2);
+    box-shadow: 0 0 10px currentColor;
+  }
+  .filter-btn.active {
+    filter: brightness(1.4);
+    box-shadow: 0 0 18px currentColor, 0 0 6px currentColor inset;
+    background: rgba(255,255,255,0.08);
+    font-weight: 700;
+  }
+  .filter-btn .badge {
+    display: inline-block;
+    margin-left: 5px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 0 5px;
+    font-size: 0.55rem;
+    vertical-align: middle;
+  }
+  .filter-btn.all { border-color: var(--text-dim); color: var(--text); }
+  .filter-btn.all.active { background: rgba(200,216,240,0.12); box-shadow: 0 0 14px rgba(200,216,240,0.4); }
+
+  /* Search */
+  .search-wrap { display: flex; justify-content: center; padding: 0.5rem 1rem 1rem; }
+  .search-input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 2rem;
+    padding: 0.5rem 1.2rem;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    width: 260px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(77,168,255,0.1);
+  }
+  .search-input::placeholder { color: var(--text-dim); }
+
+  /* Table */
+  .table-wrap {
+    overflow-x: auto;
+    padding: 0 1rem 2rem;
+  }
+
+  .periodic-table {
+    display: grid;
+    grid-template-columns: repeat(18, minmax(58px, 1fr));
+    gap: 4px;
+    max-width: 1160px;
+    margin: 0 auto;
+    min-width: 900px;
+  }
+
+  .element {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    border: 1px solid;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.3s;
+    padding: 4px;
+    background: rgba(10,18,32,0.7);
+    backdrop-filter: blur(4px);
+    user-select: none;
+  }
+
+  .element:hover {
+    transform: scale(1.18) translateZ(0);
+    z-index: 10;
+    box-shadow: 0 0 24px var(--c), 0 0 6px var(--c) inset;
+  }
+
+  .element.dimmed { 
+    opacity: 0.07; 
+    transform: none !important; 
+    pointer-events: none;
+    filter: grayscale(1);
+  }
+  .element.highlighted { 
+    opacity: 1; 
+  }
+  /* When a filter is active, highlighted elements get a strong glow border */
+  body.filtered .element.highlighted {
+    border-color: var(--c) !important;
+    box-shadow: 0 0 12px var(--c), 0 0 3px var(--c) inset;
+    background: rgba(10,18,32,0.9);
+  }
+  body.filtered .element.highlighted .sym {
+    text-shadow: 0 0 18px var(--c), 0 0 5px var(--c);
+  }
+  body.filtered .element.highlighted .name,
+  body.filtered .element.highlighted .mass,
+  body.filtered .element.highlighted .num {
+    color: rgba(210,225,255,0.9);
+  }
+
+  .element .num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.5rem;
+    color: var(--text-dim);
+    align-self: flex-start;
+    line-height: 1;
+  }
+
+  .element .sym {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.35rem;
+    line-height: 1.1;
+    color: #fff;
+    text-shadow: 0 0 8px var(--c);
+  }
+
+  .element .name {
+    font-size: 0.38rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    text-align: center;
+  }
+
+  .element .mass {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.38rem;
+    color: var(--text-dim);
+    line-height: 1;
+    margin-top: 1px;
+  }
+
+  /* Category colors */
+  .alkali          { --c: var(--alkali);         border-color: rgba(255,107,107,0.3); }
+  .alkaline        { --c: var(--alkaline);        border-color: rgba(255,159,67,0.3); }
+  .transition      { --c: var(--transition);      border-color: rgba(84,160,255,0.3); }
+  .post-transition { --c: var(--post-transition); border-color: rgba(72,219,251,0.3); }
+  .metalloid       { --c: var(--metalloid);       border-color: rgba(29,209,161,0.3); }
+  .nonmetal        { --c: var(--nonmetal);        border-color: rgba(254,202,87,0.3); }
+  .halogen         { --c: var(--halogen);         border-color: rgba(255,159,243,0.3); }
+  .noble           { --c: var(--noble);           border-color: rgba(197,108,240,0.3); }
+  .lanthanide      { --c: var(--lanthanide);      border-color: rgba(253,150,68,0.3); }
+  .actinide        { --c: var(--actinide);        border-color: rgba(232,67,147,0.3); }
+
+  .alkali .sym          { color: var(--alkali); }
+  .alkaline .sym        { color: var(--alkaline); }
+  .transition .sym      { color: var(--transition); }
+  .post-transition .sym { color: var(--post-transition); }
+  .metalloid .sym       { color: var(--metalloid); }
+  .nonmetal .sym        { color: var(--nonmetal); }
+  .halogen .sym         { color: var(--halogen); }
+  .noble .sym           { color: var(--noble); }
+  .lanthanide .sym      { color: var(--lanthanide); }
+  .actinide .sym        { color: var(--actinide); }
+
+  /* Spacers */
+  .spacer { visibility: hidden; }
+  .series-label {
+    grid-column: 1 / 4;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.5rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  /* Detail Modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: min(760px, 96vw);
+    padding: 2rem;
+    position: relative;
+    transform: scale(0.9);
+    transition: transform 0.25s;
+    box-shadow: 0 0 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    max-height: 94vh;
+    overflow-y: auto;
+  }
+  .modal-overlay.open .modal { transform: scale(1); }
+
+  /* 3D Orbital viewer */
+  .orbital-3d-wrap {
+    margin: 1.2rem 0 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: transparent;
+    position: relative;
+  }
+  .orbital-3d-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.9rem;
+    background: rgba(255,255,255,0.025);
+    border-bottom: 1px solid var(--border);
+  }
+  .orbital-3d-header .olabel {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.52rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .orbital-3d-header .oconfig {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    color: #fff;
+  }
+  #atomCanvas3d {
+    display: block;
+    width: 100%;
+    height: 320px;
+    cursor: grab;
+    background: transparent;
+  }
+  #atomCanvas3d:active { cursor: grabbing; }
+  .orbital-shell-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.9rem 0.6rem;
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.015);
+  }
+  .oleg-item {
+    display: flex; align-items: center; gap: 0.35rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.5rem;
+    color: var(--text-dim);
+  }
+  .oleg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .modal-close {
+    position: absolute; top: 1rem; right: 1rem;
+    background: none; border: none; color: var(--text-dim);
+    font-size: 1.2rem; cursor: pointer; line-height: 1;
+    transition: color 0.2s;
+  }
+  .modal-close:hover { color: #fff; }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .modal-symbol-box {
+    width: 90px; height: 90px;
+    border-radius: 12px;
+    border: 2px solid;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(10,18,32,0.8);
+  }
+
+  .modal-symbol-box .num { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--text-dim); }
+  .modal-symbol-box .sym { font-family: 'Bebas Neue', cursive; font-size: 2.8rem; line-height: 1; }
+
+  .modal-name { font-family: 'Bebas Neue', cursive; font-size: 2rem; letter-spacing: 0.05em; line-height: 1; }
+  .modal-category { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--text-dim); margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .modal-stat {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+  }
+  .modal-stat .label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.2rem;
+  }
+  .modal-stat .value { font-size: 0.9rem; font-weight: 500; color: #fff; }
+
+  .modal-description {
+    margin-top: 1rem;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    padding: 0 1rem 1.5rem;
+    max-width: 1160px;
+    margin: 0 auto;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .element { animation: fadeInUp 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">Periodic Table of Elements</div>
+  <div class="subtitle">Interactive · 118 Elements · Click to Explore</div>
+</header>
+
+<div class="controls" id="controls"></div>
+
+<div class="search-wrap">
+  <input class="search-input" type="text" placeholder="Search element, symbol, or number..." id="search">
+</div>
+
+<div class="legend" id="legend"></div>
+
+<div class="table-wrap">
+  <div class="periodic-table" id="table"></div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modalClose">✕</button>
+    <div class="modal-header">
+      <div class="modal-symbol-box" id="modalSymBox">
+        <div class="num" id="mNum"></div>
+        <div class="sym" id="mSym"></div>
+      </div>
+      <div>
+        <div class="modal-name" id="mName"></div>
+        <div class="modal-category" id="mCat"></div>
+      </div>
+    </div>
+    <div class="modal-grid" id="mGrid"></div>
+
+    <div class="orbital-3d-wrap">
+      <div class="orbital-3d-header">
+        <span class="olabel">⬤ 3D Electron Orbital Model · Drag to rotate</span>
+        <span class="oconfig" id="oConfigText"></span>
+      </div>
+      <canvas id="atomCanvas3d"></canvas>
+      <div class="orbital-shell-legend" id="oShellLegend"></div>
+    </div>
+
+    <div class="modal-description" id="mDesc"></div>
+  </div>
+</div>
+
+<script>
+const CATEGORIES = {
+  'alkali': { label: 'Alkali Metal', color: '#ff6b6b' },
+  'alkaline': { label: 'Alkaline Earth', color: '#ff9f43' },
+  'transition': { label: 'Transition Metal', color: '#54a0ff' },
+  'post-transition': { label: 'Post-Transition', color: '#48dbfb' },
+  'metalloid': { label: 'Metalloid', color: '#1dd1a1' },
+  'nonmetal': { label: 'Reactive Nonmetal', color: '#feca57' },
+  'halogen': { label: 'Halogen', color: '#ff9ff3' },
+  'noble': { label: 'Noble Gas', color: '#c56cf0' },
+  'lanthanide': { label: 'Lanthanide', color: '#fd9644' },
+  'actinide': { label: 'Actinide', color: '#e84393' },
+};
+
+const ELEMENTS = [
+  { n:1, sym:'H', name:'Hydrogen', mass:'1.008', cat:'nonmetal', group:1, period:1, phase:'Gas', block:'s', config:'1s¹', discovered:'1766', electron:2.2, desc:'The lightest and most abundant element in the universe. Makes up about 75% of all normal matter by mass. Essential in stellar fusion and the basis of all organic chemistry.' },
+  { n:2, sym:'He', name:'Helium', mass:'4.003', cat:'noble', group:18, period:1, phase:'Gas', block:'s', config:'1s²', discovered:'1868', electron:'—', desc:'Second most abundant element in the universe. Inert noble gas used in balloons, deep-sea diving, and cryogenic applications including MRI magnets.' },
+  { n:3, sym:'Li', name:'Lithium', mass:'6.941', cat:'alkali', group:1, period:2, phase:'Solid', block:'s', config:'[He] 2s¹', discovered:'1817', electron:0.98, desc:'Lightest metal and solid element. Critical in lithium-ion batteries, mood-stabilizing medications, and high-performance alloys.' },
+  { n:4, sym:'Be', name:'Beryllium', mass:'9.012', cat:'alkaline', group:2, period:2, phase:'Solid', block:'s', config:'[He] 2s²', discovered:'1797', electron:1.57, desc:'Extremely stiff and light metal. Used in aerospace components, X-ray windows, and nuclear reactor moderators. Highly toxic if inhaled.' },
+  { n:5, sym:'B', name:'Boron', mass:'10.81', cat:'metalloid', group:13, period:2, phase:'Solid', block:'p', config:'[He] 2s² 2p¹', discovered:'1808', electron:2.04, desc:'Metalloid critical in borosilicate glass, semiconductors, and agriculture. Boron neutron capture therapy shows promise in cancer treatment.' },
+  { n:6, sym:'C', name:'Carbon', mass:'12.01', cat:'nonmetal', group:14, period:2, phase:'Solid', block:'p', config:'[He] 2s² 2p²', discovered:'Ancient', electron:2.55, desc:'Basis of all known life. Forms millions of compounds including DNA, proteins, graphene, and diamonds. The fourth most abundant element in the universe.' },
+  { n:7, sym:'N', name:'Nitrogen', mass:'14.01', cat:'nonmetal', group:15, period:2, phase:'Gas', block:'p', config:'[He] 2s² 2p³', discovered:'1772', electron:3.04, desc:'Makes up 78% of Earth\'s atmosphere. Essential in proteins, DNA, and RNA. Liquid nitrogen used in cryopreservation and food processing.' },
+  { n:8, sym:'O', name:'Oxygen', mass:'16.00', cat:'nonmetal', group:16, period:2, phase:'Gas', block:'p', config:'[He] 2s² 2p⁴', discovered:'1774', electron:3.44, desc:'Most abundant element in Earth\'s crust. Enables aerobic respiration in living organisms. Essential for combustion and forms water with hydrogen.' },
+  { n:9, sym:'F', name:'Fluorine', mass:'19.00', cat:'halogen', group:17, period:2, phase:'Gas', block:'p', config:'[He] 2s² 2p⁵', discovered:'1886', electron:3.98, desc:'Most electronegative and reactive element. Used in toothpaste (dental health), Teflon coatings, and uranium enrichment processes.' },
+  { n:10, sym:'Ne', name:'Neon', mass:'20.18', cat:'noble', group:18, period:2, phase:'Gas', block:'p', config:'[He] 2s² 2p⁶', discovered:'1898', electron:'—', desc:'Noble gas famous for its bright reddish-orange glow in neon signs. Fifth most abundant element in the universe.' },
+  { n:11, sym:'Na', name:'Sodium', mass:'22.99', cat:'alkali', group:1, period:3, phase:'Solid', block:'s', config:'[Ne] 3s¹', discovered:'1807', electron:0.93, desc:'Highly reactive metal. Essential electrolyte in biology. Common table salt (NaCl) is its most familiar compound. Reacts violently with water.' },
+  { n:12, sym:'Mg', name:'Magnesium', mass:'24.31', cat:'alkaline', group:2, period:3, phase:'Solid', block:'s', config:'[Ne] 3s²', discovered:'1808', electron:1.31, desc:'Light structural metal central to chlorophyll in plants. Critical in human physiology — co-factor for over 300 enzymes. Burns with brilliant white light.' },
+  { n:13, sym:'Al', name:'Aluminium', mass:'26.98', cat:'post-transition', group:13, period:3, phase:'Solid', block:'p', config:'[Ne] 3s² 3p¹', discovered:'1825', electron:1.61, desc:'Most abundant metal in Earth\'s crust. Lightweight, corrosion-resistant, and infinitely recyclable. Ubiquitous in packaging, aerospace, and construction.' },
+  { n:14, sym:'Si', name:'Silicon', mass:'28.09', cat:'metalloid', group:14, period:3, phase:'Solid', block:'p', config:'[Ne] 3s² 3p²', discovered:'1824', electron:1.90, desc:'Foundation of modern electronics and computing. Second most abundant element in Earth\'s crust. Central to semiconductor technology and solar cells.' },
+  { n:15, sym:'P', name:'Phosphorus', mass:'30.97', cat:'nonmetal', group:15, period:3, phase:'Solid', block:'p', config:'[Ne] 3s² 3p³', discovered:'1669', electron:2.19, desc:'Essential in DNA, RNA, ATP, and cell membranes. Critical for agriculture in fertilizers. White phosphorus is highly flammable.' },
+  { n:16, sym:'S', name:'Sulfur', mass:'32.07', cat:'nonmetal', group:16, period:3, phase:'Solid', block:'p', config:'[Ne] 3s² 3p⁴', discovered:'Ancient', electron:2.58, desc:'Yellow nonmetal essential in amino acids and vitamins. Used in fertilizers, gunpowder, and vulcanizing rubber. Distinctive rotten-egg smell when in H₂S form.' },
+  { n:17, sym:'Cl', name:'Chlorine', mass:'35.45', cat:'halogen', group:17, period:3, phase:'Gas', block:'p', config:'[Ne] 3s² 3p⁵', discovered:'1774', electron:3.16, desc:'Disinfectant used in drinking water and swimming pools. Forms table salt with sodium. Toxic yellowish-green gas historically used in chemical warfare.' },
+  { n:18, sym:'Ar', name:'Argon', mass:'39.95', cat:'noble', group:18, period:3, phase:'Gas', block:'p', config:'[Ne] 3s² 3p⁶', discovered:'1894', electron:'—', desc:'Most abundant noble gas in Earth\'s atmosphere at 0.93%. Used in welding, light bulbs, and as an inert atmosphere for sensitive processes.' },
+  { n:19, sym:'K', name:'Potassium', mass:'39.10', cat:'alkali', group:1, period:4, phase:'Solid', block:'s', config:'[Ar] 4s¹', discovered:'1807', electron:0.82, desc:'Essential electrolyte in biology, critical for nerve function and heart rhythm. Bananas are a famous dietary source. Reacts explosively with water.' },
+  { n:20, sym:'Ca', name:'Calcium', mass:'40.08', cat:'alkaline', group:2, period:4, phase:'Solid', block:'s', config:'[Ar] 4s²', discovered:'1808', electron:1.00, desc:'Most abundant metal in the human body, forming bones and teeth. Essential for muscle contraction and nerve signaling. Major component of limestone.' },
+  { n:21, sym:'Sc', name:'Scandium', mass:'44.96', cat:'transition', group:3, period:4, phase:'Solid', block:'d', config:'[Ar] 3d¹ 4s²', discovered:'1879', electron:1.36, desc:'Rare transition metal used in aerospace alloys and sports equipment. Combined with aluminium it creates extremely strong lightweight materials.' },
+  { n:22, sym:'Ti', name:'Titanium', mass:'47.87', cat:'transition', group:4, period:4, phase:'Solid', block:'d', config:'[Ar] 3d² 4s²', discovered:'1791', electron:1.54, desc:'Strongest naturally occurring metal relative to density. Biocompatible, used in medical implants and prosthetics. Resists corrosion remarkably.' },
+  { n:23, sym:'V', name:'Vanadium', mass:'50.94', cat:'transition', group:5, period:4, phase:'Solid', block:'d', config:'[Ar] 3d³ 4s²', discovered:'1801', electron:1.63, desc:'Hard, bluish-silver metal used to strengthen steel alloys. Vanadium redox batteries show promise for large-scale energy storage.' },
+  { n:24, sym:'Cr', name:'Chromium', mass:'52.00', cat:'transition', group:6, period:4, phase:'Solid', block:'d', config:'[Ar] 3d⁵ 4s¹', discovered:'1798', electron:1.66, desc:'Shiny, hard metal that gives stainless steel its corrosion resistance. Used in chrome plating and produces vibrant pigments.' },
+  { n:25, sym:'Mn', name:'Manganese', mass:'54.94', cat:'transition', group:7, period:4, phase:'Solid', block:'d', config:'[Ar] 3d⁵ 4s²', discovered:'1774', electron:1.55, desc:'Essential trace element in all living organisms. Critical in steel production, used in batteries and as a pigment in glass.' },
+  { n:26, sym:'Fe', name:'Iron', mass:'55.85', cat:'transition', group:8, period:4, phase:'Solid', block:'d', config:'[Ar] 3d⁶ 4s²', discovered:'Ancient', electron:1.83, desc:'Most used metal in the world and core of Earth. Essential in hemoglobin for oxygen transport. Foundation of the Iron Age and modern civilization.' },
+  { n:27, sym:'Co', name:'Cobalt', mass:'58.93', cat:'transition', group:9, period:4, phase:'Solid', block:'d', config:'[Ar] 3d⁷ 4s²', discovered:'1735', electron:1.88, desc:'Blue pigment used since ancient times. Essential in vitamin B12. Critical in lithium-ion batteries and superalloys for jet engines.' },
+  { n:28, sym:'Ni', name:'Nickel', mass:'58.69', cat:'transition', group:10, period:4, phase:'Solid', block:'d', config:'[Ar] 3d⁸ 4s²', discovered:'1751', electron:1.91, desc:'Corrosion-resistant metal used extensively in stainless steel, coins, and batteries. Essential catalyst in hydrogenation reactions.' },
+  { n:29, sym:'Cu', name:'Copper', mass:'63.55', cat:'transition', group:11, period:4, phase:'Solid', block:'d', config:'[Ar] 3d¹⁰ 4s¹', discovered:'Ancient', electron:1.90, desc:'First metal used by humans. Excellent electrical conductor — basis of all electrical wiring. Essential trace element in biology. Develops blue-green patina.' },
+  { n:30, sym:'Zn', name:'Zinc', mass:'65.38', cat:'transition', group:12, period:4, phase:'Solid', block:'d', config:'[Ar] 3d¹⁰ 4s²', discovered:'1746', electron:1.65, desc:'Essential micronutrient for immune function. Used to galvanize steel against rust. Found in over 300 enzymes and critical for wound healing.' },
+  { n:31, sym:'Ga', name:'Gallium', mass:'69.72', cat:'post-transition', group:13, period:4, phase:'Solid', block:'p', config:'[Ar] 3d¹⁰ 4s² 4p¹', discovered:'1875', electron:1.81, desc:'Melts in your hand (30°C). Used in semiconductors, LEDs, and solar cells. Gallium arsenide is key in high-speed electronics.' },
+  { n:32, sym:'Ge', name:'Germanium', mass:'72.63', cat:'metalloid', group:14, period:4, phase:'Solid', block:'p', config:'[Ar] 3d¹⁰ 4s² 4p²', discovered:'1886', electron:2.01, desc:'Predicted by Mendeleev before its discovery. Used in fiber optics, infrared optics, and early transistors. A foundational element of electronics.' },
+  { n:33, sym:'As', name:'Arsenic', mass:'74.92', cat:'metalloid', group:15, period:4, phase:'Solid', block:'p', config:'[Ar] 3d¹⁰ 4s² 4p³', discovered:'Ancient', electron:2.18, desc:'Notorious poison used in historical homicides and warfare. Used in wood preservatives, semiconductors, and as a dopant in silicon chips.' },
+  { n:34, sym:'Se', name:'Selenium', mass:'78.97', cat:'nonmetal', group:16, period:4, phase:'Solid', block:'p', config:'[Ar] 3d¹⁰ 4s² 4p⁴', discovered:'1817', electron:2.55, desc:'Essential trace element with antioxidant properties. Used in photovoltaic cells, glass manufacturing, and dandruff shampoos.' },
+  { n:35, sym:'Br', name:'Bromine', mass:'79.90', cat:'halogen', group:17, period:4, phase:'Liquid', block:'p', config:'[Ar] 3d¹⁰ 4s² 4p⁵', discovered:'1826', electron:2.96, desc:'One of only two elements liquid at room temperature. Red-brown toxic liquid. Used in flame retardants, pesticides, and photographic film.' },
+  { n:36, sym:'Kr', name:'Krypton', mass:'83.80', cat:'noble', group:18, period:4, phase:'Gas', block:'p', config:'[Ar] 3d¹⁰ 4s² 4p⁶', discovered:'1898', electron:'—', desc:'Noble gas used in high-powered lasers, fluorescent lights, and high-speed photography. The metre was once defined by krypton wavelength.' },
+  { n:37, sym:'Rb', name:'Rubidium', mass:'85.47', cat:'alkali', group:1, period:5, phase:'Solid', block:'s', config:'[Kr] 5s¹', discovered:'1861', electron:0.82, desc:'Highly reactive alkali metal. Used in atomic clocks, photoelectric cells, and as a dopant in fiber optics. Ignites spontaneously in air.' },
+  { n:38, sym:'Sr', name:'Strontium', mass:'87.62', cat:'alkaline', group:2, period:5, phase:'Solid', block:'s', config:'[Kr] 5s²', discovered:'1790', electron:0.95, desc:'Produces brilliant red flames in fireworks and flares. Strontium-90 is a dangerous radioactive isotope produced in nuclear fallout.' },
+  { n:39, sym:'Y', name:'Yttrium', mass:'88.91', cat:'transition', group:3, period:5, phase:'Solid', block:'d', config:'[Kr] 4d¹ 5s²', discovered:'1794', electron:1.22, desc:'Used in red phosphors for TV screens and LEDs. Critical in superconductors and laser crystals. Part of the yttrium iron garnet used in microwave filters.' },
+  { n:40, sym:'Zr', name:'Zirconium', mass:'91.22', cat:'transition', group:4, period:5, phase:'Solid', block:'d', config:'[Kr] 4d² 5s²', discovered:'1789', electron:1.33, desc:'Extremely corrosion-resistant metal used in nuclear reactor fuel rods. Cubic zirconia is a popular diamond simulant. Biocompatible in medical devices.' },
+  { n:41, sym:'Nb', name:'Niobium', mass:'92.91', cat:'transition', group:5, period:5, phase:'Solid', block:'d', config:'[Kr] 4d⁴ 5s¹', discovered:'1801', electron:1.6, desc:'Superconducting metal used in MRI machines and particle accelerators. Strengthens steel alloys used in pipelines and cars.' },
+  { n:42, sym:'Mo', name:'Molybdenum', mass:'95.95', cat:'transition', group:6, period:5, phase:'Solid', block:'d', config:'[Kr] 4d⁵ 5s¹', discovered:'1781', electron:2.16, desc:'High melting point metal used in high-temperature alloys, jet engines, and as an essential trace element in nitrogen fixation enzymes.' },
+  { n:43, sym:'Tc', name:'Technetium', mass:'(98)', cat:'transition', group:7, period:5, phase:'Solid', block:'d', config:'[Kr] 4d⁵ 5s²', discovered:'1937', electron:1.9, desc:'First synthetically produced element. Tc-99m is the most widely used radioisotope in nuclear medicine diagnostic imaging (over 20 million scans/year).' },
+  { n:44, sym:'Ru', name:'Ruthenium', mass:'101.1', cat:'transition', group:8, period:5, phase:'Solid', block:'d', config:'[Kr] 4d⁷ 5s¹', discovered:'1844', electron:2.2, desc:'Platinum group metal used as a catalyst and in electrical contacts. Increasing use in solar cells and as a hardening agent for palladium alloys.' },
+  { n:45, sym:'Rh', name:'Rhodium', mass:'102.9', cat:'transition', group:9, period:5, phase:'Solid', block:'d', config:'[Kr] 4d⁸ 5s¹', discovered:'1803', electron:2.28, desc:'Rarest and most valuable precious metal. Critical in catalytic converters to reduce vehicle emissions. Platinum-rhodium alloys used in glass fiber production.' },
+  { n:46, sym:'Pd', name:'Palladium', mass:'106.4', cat:'transition', group:10, period:5, phase:'Solid', block:'d', config:'[Kr] 4d¹⁰', discovered:'1803', electron:2.20, desc:'Absorbs enormous quantities of hydrogen gas. Key in catalytic converters and fuel cells. Used in electronics and dental work.' },
+  { n:47, sym:'Ag', name:'Silver', mass:'107.9', cat:'transition', group:11, period:5, phase:'Solid', block:'d', config:'[Kr] 4d¹⁰ 5s¹', discovered:'Ancient', electron:1.93, desc:'Best electrical and thermal conductor of all metals. Used in photography, mirrors, jewelry, and antibacterial applications. Monetary metal throughout history.' },
+  { n:48, sym:'Cd', name:'Cadmium', mass:'112.4', cat:'transition', group:12, period:5, phase:'Solid', block:'d', config:'[Kr] 4d¹⁰ 5s²', discovered:'1817', electron:1.69, desc:'Toxic heavy metal used in nickel-cadmium rechargeable batteries and yellow pigments. Increasingly restricted due to environmental and health hazards.' },
+  { n:49, sym:'In', name:'Indium', mass:'114.8', cat:'post-transition', group:13, period:5, phase:'Solid', block:'p', config:'[Kr] 4d¹⁰ 5s² 5p¹', discovered:'1863', electron:1.78, desc:'Soft, silvery metal used in indium tin oxide (ITO) for touchscreens and flat panel displays. Critical component of modern consumer electronics.' },
+  { n:50, sym:'Sn', name:'Tin', mass:'118.7', cat:'post-transition', group:14, period:5, phase:'Solid', block:'p', config:'[Kr] 4d¹⁰ 5s² 5p²', discovered:'Ancient', electron:1.96, desc:'Used since ancient times in bronze. Coats steel cans to prevent corrosion. Essential in solder for electronics. Produces a distinctive "tin cry" when bent.' },
+  { n:51, sym:'Sb', name:'Antimony', mass:'121.8', cat:'metalloid', group:15, period:5, phase:'Solid', block:'p', config:'[Kr] 4d¹⁰ 5s² 5p³', discovered:'Ancient', electron:2.05, desc:'Brittle metalloid used in flame retardants, lead-acid batteries, and semiconductors. Used as kohl eyeliner in ancient Egypt.' },
+  { n:52, sym:'Te', name:'Tellurium', mass:'127.6', cat:'metalloid', group:16, period:5, phase:'Solid', block:'p', config:'[Kr] 4d¹⁰ 5s² 5p⁴', discovered:'1782', electron:2.1, desc:'One of the rarest stable elements in Earth\'s crust. Used in cadmium telluride solar panels and as a p-type dopant in semiconductors.' },
+  { n:53, sym:'I', name:'Iodine', mass:'126.9', cat:'halogen', group:17, period:5, phase:'Solid', block:'p', config:'[Kr] 4d¹⁰ 5s² 5p⁵', discovered:'1811', electron:2.66, desc:'Essential trace element for thyroid hormone synthesis. Used as an antiseptic and in iodized salt to prevent deficiency. Sublimes to violet gas.' },
+  { n:54, sym:'Xe', name:'Xenon', mass:'131.3', cat:'noble', group:18, period:5, phase:'Gas', block:'p', config:'[Kr] 4d¹⁰ 5s² 5p⁶', discovered:'1898', electron:'—', desc:'Dense noble gas used in flash lamps, ion propulsion systems for spacecraft, and increasingly in general anesthesia and medical imaging.' },
+  { n:55, sym:'Cs', name:'Cesium', mass:'132.9', cat:'alkali', group:1, period:6, phase:'Solid', block:'s', config:'[Xe] 6s¹', discovered:'1860', electron:0.79, desc:'Most electropositive element. Cesium atomic clocks define the SI second. Melts at just above room temperature (28.5°C). Extremely reactive.' },
+  { n:56, sym:'Ba', name:'Barium', mass:'137.3', cat:'alkaline', group:2, period:6, phase:'Solid', block:'s', config:'[Xe] 6s²', discovered:'1808', electron:0.89, desc:'Used in barium meals for X-ray imaging of the gastrointestinal tract. Barium sulfate is opaque to X-rays and safe to swallow.' },
+  { n:57, sym:'La', name:'Lanthanum', mass:'138.9', cat:'lanthanide', group:3, period:6, phase:'Solid', block:'f', config:'[Xe] 5d¹ 6s²', discovered:'1839', electron:1.10, desc:'First lanthanide element. Used in high-refractive-index camera lenses, hydrogen storage alloys, and nickel-metal hydride batteries.' },
+  { n:58, sym:'Ce', name:'Cerium', mass:'140.1', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f¹ 5d¹ 6s²', discovered:'1803', electron:1.12, desc:'Most abundant rare earth metal. Used in catalytic converters, self-cleaning ovens, and as a glass polishing compound.' },
+  { n:59, sym:'Pr', name:'Praseodymium', mass:'140.9', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f³ 6s²', discovered:'1885', electron:1.13, desc:'Used in powerful magnets, aircraft engines, and high-performance glass for welding goggles that filter yellow sodium flare.' },
+  { n:60, sym:'Nd', name:'Neodymium', mass:'144.2', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f⁴ 6s²', discovered:'1885', electron:1.14, desc:'Makes the strongest permanent magnets known. Neodymium magnets power electric vehicles, wind turbines, headphones, and computer hard drives.' },
+  { n:61, sym:'Pm', name:'Promethium', mass:'(145)', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f⁵ 6s²', discovered:'1945', electron:1.13, desc:'Only radioactive lanthanide. No stable isotopes. Named after Prometheus. Used in nuclear-powered pacemakers and thickness gauges.' },
+  { n:62, sym:'Sm', name:'Samarium', mass:'150.4', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f⁶ 6s²', discovered:'1879', electron:1.17, desc:'Samarium-cobalt magnets operate at higher temperatures than neodymium magnets. Used in cancer treatment (samarium-153) and neutron absorption.' },
+  { n:63, sym:'Eu', name:'Europium', mass:'152.0', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f⁷ 6s²', discovered:'1901', electron:'—', desc:'Most reactive rare earth metal. Provides red and blue phosphors in LED lighting and TV screens. Euro banknotes use europium-doped inks as anti-counterfeit measures.' },
+  { n:64, sym:'Gd', name:'Gadolinium', mass:'157.3', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f⁷ 5d¹ 6s²', discovered:'1880', electron:1.20, desc:'Contrast agent in MRI scanning. Strongly magnetic at room temperature. Used in neutron radiography and nuclear reactor control rods.' },
+  { n:65, sym:'Tb', name:'Terbium', mass:'158.9', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f⁹ 6s²', discovered:'1843', electron:'—', desc:'Used in green phosphors, fuel cells, and sonar systems. Terbium-doped materials exhibit magnetostriction — changing shape in magnetic fields.' },
+  { n:66, sym:'Dy', name:'Dysprosium', mass:'162.5', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f¹⁰ 6s²', discovered:'1886', electron:1.22, desc:'Critical addition to neodymium magnets for high-temperature performance. Essential in electric vehicle motors and wind turbine generators.' },
+  { n:67, sym:'Ho', name:'Holmium', mass:'164.9', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f¹¹ 6s²', discovered:'1879', electron:1.23, desc:'Highest magnetic moment of all elements. Used in strong magnets, nuclear reactor control rods, and holmium lasers for medical surgeries.' },
+  { n:68, sym:'Er', name:'Erbium', mass:'167.3', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f¹² 6s²', discovered:'1843', electron:1.24, desc:'Used as an amplifier in fiber optic cables (erbium-doped fiber amplifiers). Gives glass and ceramics a pink color. Used in dermatology lasers.' },
+  { n:69, sym:'Tm', name:'Thulium', mass:'168.9', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f¹³ 6s²', discovered:'1879', electron:1.25, desc:'Rarest naturally occurring lanthanide. Tm-170 used in portable X-ray devices. Thulium lasers used in urology and dermatology.' },
+  { n:70, sym:'Yb', name:'Ytterbium', mass:'173.0', cat:'lanthanide', group:'f', period:6, phase:'Solid', block:'f', config:'[Xe] 4f¹⁴ 6s²', discovered:'1878', electron:'—', desc:'Used in ytterbium atomic clocks — among the most accurate ever built. Used in stainless steel and as a portable X-ray source.' },
+  { n:71, sym:'Lu', name:'Lutetium', mass:'175.0', cat:'lanthanide', group:3, period:6, phase:'Solid', block:'f', config:'[Xe] 4f¹⁴ 5d¹ 6s²', discovered:'1907', electron:1.27, desc:'Hardest and densest lanthanide. Used in PET scan detectors and as a catalyst in petroleum refining. Lu-177 is a promising cancer therapy agent.' },
+  { n:72, sym:'Hf', name:'Hafnium', mass:'178.5', cat:'transition', group:4, period:6, phase:'Solid', block:'d', config:'[Xe] 4f¹⁴ 5d² 6s²', discovered:'1923', electron:1.3, desc:'Always found with zirconium in nature. Used in nuclear reactor control rods and as a gate dielectric in microprocessors. Melting point of 2233°C.' },
+  { n:73, sym:'Ta', name:'Tantalum', mass:'180.9', cat:'transition', group:5, period:6, phase:'Solid', block:'d', config:'[Xe] 4f¹⁴ 5d³ 6s²', discovered:'1802', electron:1.5, desc:'Biocompatible metal used in capacitors for smartphones and laptops. Used in surgical implants and corrosion-resistant chemical equipment.' },
+  { n:74, sym:'W', name:'Tungsten', mass:'183.8', cat:'transition', group:6, period:6, phase:'Solid', block:'d', config:'[Xe] 4f¹⁴ 5d⁴ 6s²', discovered:'1783', electron:2.36, desc:'Highest melting point of any pure metal (3422°C). Used in incandescent light bulb filaments, cutting tools, and radiation shielding.' },
+  { n:75, sym:'Re', name:'Rhenium', mass:'186.2', cat:'transition', group:7, period:6, phase:'Solid', block:'d', config:'[Xe] 4f¹⁴ 5d⁵ 6s²', discovered:'1925', electron:1.9, desc:'Last stable element discovered in nature. Highest boiling point of all elements. Used in high-temperature jet engine superalloys and catalysts.' },
+  { n:76, sym:'Os', name:'Osmium', mass:'190.2', cat:'transition', group:8, period:6, phase:'Solid', block:'d', config:'[Xe] 4f¹⁴ 5d⁶ 6s²', discovered:'1803', electron:2.2, desc:'Densest naturally occurring element (22.59 g/cm³). Used in fountain pen nibs, electrical contacts, and as a tissue stain in electron microscopy.' },
+  { n:77, sym:'Ir', name:'Iridium', mass:'192.2', cat:'transition', group:9, period:6, phase:'Solid', block:'d', config:'[Xe] 4f¹⁴ 5d⁷ 6s²', discovered:'1803', electron:2.20, desc:'Most corrosion-resistant metal. The K-Pg boundary iridium spike is key evidence for the asteroid impact that killed the dinosaurs.' },
+  { n:78, sym:'Pt', name:'Platinum', mass:'195.1', cat:'transition', group:10, period:6, phase:'Solid', block:'d', config:'[Xe] 4f¹⁴ 5d⁹ 6s¹', discovered:'1735', electron:2.28, desc:'Precious catalytic metal. Cisplatin is a major chemotherapy drug. Used in catalytic converters, fuel cells, and laboratory equipment.' },
+  { n:79, sym:'Au', name:'Gold', mass:'197.0', cat:'transition', group:11, period:6, phase:'Solid', block:'d', config:'[Xe] 4f¹⁴ 5d¹⁰ 6s¹', discovered:'Ancient', electron:2.54, desc:'Noblest of metals. Used as currency for millennia. Excellent conductor used in electronics. Used in cancer nanoparticle therapies and space telescope coatings.' },
+  { n:80, sym:'Hg', name:'Mercury', mass:'200.6', cat:'transition', group:12, period:6, phase:'Liquid', block:'d', config:'[Xe] 4f¹⁴ 5d¹⁰ 6s²', discovered:'Ancient', electron:2.00, desc:'Only metal liquid at room temperature. Used in thermometers, barometers, and fluorescent lights. Highly toxic neurotoxin; use increasingly restricted.' },
+  { n:81, sym:'Tl', name:'Thallium', mass:'204.4', cat:'post-transition', group:13, period:6, phase:'Solid', block:'p', config:'[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p¹', discovered:'1861', electron:1.62, desc:'Highly toxic metal historically used as rat poison and murder weapon. Now used in infrared detectors and specialized glass.' },
+  { n:82, sym:'Pb', name:'Lead', mass:'207.2', cat:'post-transition', group:14, period:6, phase:'Solid', block:'p', config:'[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p²', discovered:'Ancient', electron:2.33, desc:'Heavy, soft metal. Used in lead-acid batteries, radiation shielding, and historically in pipes and paint. Cumulative neurotoxin now strictly regulated.' },
+  { n:83, sym:'Bi', name:'Bismuth', mass:'209.0', cat:'post-transition', group:15, period:6, phase:'Solid', block:'p', config:'[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p³', discovered:'1753', electron:2.02, desc:'Heaviest stable element. Forms colorful iridescent oxide crystals. Used in Pepto-Bismol, low-melting alloys, and as a lead substitute.' },
+  { n:84, sym:'Po', name:'Polonium', mass:'(209)', cat:'post-transition', group:16, period:6, phase:'Solid', block:'p', config:'[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁴', discovered:'1898', electron:2.0, desc:'Discovered by Marie Curie and named after Poland. Intensely radioactive. Used in anti-static devices. Po-210 used in the high-profile Litvinenko poisoning.' },
+  { n:85, sym:'At', name:'Astatine', mass:'(210)', cat:'halogen', group:17, period:6, phase:'Solid', block:'p', config:'[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁵', discovered:'1940', electron:2.2, desc:'Rarest naturally occurring element on Earth (~25g in the crust at any time). Radioactive halogen studied for targeted alpha therapy in cancer treatment.' },
+  { n:86, sym:'Rn', name:'Radon', mass:'(222)', cat:'noble', group:18, period:6, phase:'Gas', block:'p', config:'[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁶', discovered:'1900', electron:'—', desc:'Radioactive noble gas. Second leading cause of lung cancer after smoking in many countries. Seeps naturally from uranium-bearing soil and rock.' },
+  { n:87, sym:'Fr', name:'Francium', mass:'(223)', cat:'alkali', group:1, period:7, phase:'Solid', block:'s', config:'[Rn] 7s¹', discovered:'1939', electron:0.7, desc:'Second rarest naturally occurring element. Most unstable of all naturally occurring elements. Only a few grams exist on Earth at any time.' },
+  { n:88, sym:'Ra', name:'Radium', mass:'(226)', cat:'alkaline', group:2, period:7, phase:'Solid', block:'s', config:'[Rn] 7s²', discovered:'1898', electron:0.9, desc:'Discovered by Marie Curie. Glows faint blue due to radioluminescence. Was used in luminous watch dials and early cancer treatment; now replaced by safer options.' },
+  { n:89, sym:'Ac', name:'Actinium', mass:'(227)', cat:'actinide', group:3, period:7, phase:'Solid', block:'f', config:'[Rn] 6d¹ 7s²', discovered:'1899', electron:1.1, desc:'First actinide element. Radioactive and glows blue in the dark. Ac-225 shows great promise in targeted alpha therapy for metastatic cancer.' },
+  { n:90, sym:'Th', name:'Thorium', mass:'232.0', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 6d² 7s²', discovered:'1829', electron:1.3, desc:'Mildly radioactive metal proposed as nuclear fuel. Thorium reactors are theoretically safer than uranium. Found in gas lantern mantles.' },
+  { n:91, sym:'Pa', name:'Protactinium', mass:'231.0', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f² 6d¹ 7s²', discovered:'1913', electron:1.5, desc:'Dense, radioactive metal. Produced in small amounts in nuclear reactors. Decay product used in dating ocean sediments.' },
+  { n:92, sym:'U', name:'Uranium', mass:'238.0', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f³ 6d¹ 7s²', discovered:'1789', electron:1.38, desc:'Dense, weakly radioactive metal. Fuel for nuclear reactors. U-235 is the main fissile isotope used in nuclear weapons and reactor fuel.' },
+  { n:93, sym:'Np', name:'Neptunium', mass:'(237)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f⁴ 6d¹ 7s²', discovered:'1940', electron:1.36, desc:'First transuranium element synthesized. Named after Neptune. Found in trace amounts in uranium ores from neutron bombardment. Used in neutron detectors.' },
+  { n:94, sym:'Pu', name:'Plutonium', mass:'(244)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f⁶ 7s²', discovered:'1940', electron:1.28, desc:'Has six allotropic forms — more than any other element. Fissile Pu-239 used in nuclear weapons and reactors. Pu-238 powers deep space probes including Voyager.' },
+  { n:95, sym:'Am', name:'Americium', mass:'(243)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f⁷ 7s²', discovered:'1944', electron:1.3, desc:'Common in household smoke detectors (Am-241). Glows faintly blue-green due to radioactive decay. First element produced in larger than microgram quantities.' },
+  { n:96, sym:'Cm', name:'Curium', mass:'(247)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f⁷ 6d¹ 7s²', discovered:'1944', electron:1.3, desc:'Named after Marie and Pierre Curie. Cm-244 used in radioisotope thermoelectric generators for spacecraft power. Intensely radioactive.' },
+  { n:97, sym:'Bk', name:'Berkelium', mass:'(247)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f⁹ 7s²', discovered:'1949', electron:1.3, desc:'Named after Berkeley, California. Produced only in microscopic amounts. Used to synthesize heavier transuranium elements like tennessine.' },
+  { n:98, sym:'Cf', name:'Californium', mass:'(251)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f¹⁰ 7s²', discovered:'1950', electron:1.3, desc:'Most commercially used transuranium element. Cf-252 is a powerful neutron source used in treating certain brain tumors and for nuclear reactor startup.' },
+  { n:99, sym:'Es', name:'Einsteinium', mass:'(252)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f¹¹ 7s²', discovered:'1952', electron:1.3, desc:'Named after Albert Einstein. Discovered in fallout from Ivy Mike hydrogen bomb test. Produced only in nanogram quantities. Intense alpha emitter.' },
+  { n:100, sym:'Fm', name:'Fermium', mass:'(257)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f¹² 7s²', discovered:'1952', electron:1.3, desc:'Named after Enrico Fermi. Also discovered in nuclear bomb fallout. Cannot be produced in weighable amounts. Heaviest element that can be made by neutron bombardment.' },
+  { n:101, sym:'Md', name:'Mendelevium', mass:'(258)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f¹³ 7s²', discovered:'1955', electron:1.3, desc:'Named after Dmitri Mendeleev, creator of the periodic table. Produced only a few atoms at a time by bombarding einsteinium with helium ions.' },
+  { n:102, sym:'No', name:'Nobelium', mass:'(259)', cat:'actinide', group:'f', period:7, phase:'Solid', block:'f', config:'[Rn] 5f¹⁴ 7s²', discovered:'1958', electron:1.3, desc:'Named after Alfred Nobel. Unstable and produced in tiny amounts. Most stable isotope has a half-life of 58 minutes.' },
+  { n:103, sym:'Lr', name:'Lawrencium', mass:'(266)', cat:'actinide', group:3, period:7, phase:'Solid', block:'d', config:'[Rn] 5f¹⁴ 7s² 7p¹', discovered:'1961', electron:1.3, desc:'Named after Ernest Lawrence, inventor of the cyclotron. Last actinide. Produced by bombarding californium with boron ions. Extremely short-lived.' },
+  { n:104, sym:'Rf', name:'Rutherfordium', mass:'(267)', cat:'transition', group:4, period:7, phase:'Solid', block:'d', config:'[Rn] 5f¹⁴ 6d² 7s²', discovered:'1964', electron:'—', desc:'Named after Ernest Rutherford. First transactinide element. Produced in nuclear reactions and exists only for seconds. Chemistry studied in single-atom experiments.' },
+  { n:105, sym:'Db', name:'Dubnium', mass:'(268)', cat:'transition', group:5, period:7, phase:'Solid', block:'d', config:'[Rn] 5f¹⁴ 6d³ 7s²', discovered:'1967', electron:'—', desc:'Named after Dubna, Russia. Synthetic element with no stable isotopes. Most stable isotope has a half-life of about 28 hours.' },
+  { n:106, sym:'Sg', name:'Seaborgium', mass:'(271)', cat:'transition', group:6, period:7, phase:'Solid', block:'d', config:'[Rn] 5f¹⁴ 6d⁴ 7s²', discovered:'1974', electron:'—', desc:'Named after Glenn T. Seaborg (while he was still alive). Behaves chemically similar to tungsten. Extremely short half-life of a few minutes.' },
+  { n:107, sym:'Bh', name:'Bohrium', mass:'(270)', cat:'transition', group:7, period:7, phase:'Solid', block:'d', config:'[Rn] 5f¹⁴ 6d⁵ 7s²', discovered:'1981', electron:'—', desc:'Named after Niels Bohr. Produced in extremely small quantities. Chemistry similar to rhenium. Half-life of most stable isotope: ~61 seconds.' },
+  { n:108, sym:'Hs', name:'Hassium', mass:'(277)', cat:'transition', group:8, period:7, phase:'Solid', block:'d', config:'[Rn] 5f¹⁴ 6d⁶ 7s²', discovered:'1984', electron:'—', desc:'Named after Hesse, Germany. Behaves like osmium chemically. Most stable isotope has a half-life of 16.5 hours — unusually long for superheavy elements.' },
+  { n:109, sym:'Mt', name:'Meitnerium', mass:'(278)', cat:'transition', group:9, period:7, phase:'Solid', block:'d', config:'[Rn] 5f¹⁴ 6d⁷ 7s²', discovered:'1982', electron:'—', desc:'Named after Lise Meitner, who co-discovered nuclear fission. No practical uses yet. Exists only for milliseconds before radioactive decay.' },
+  { n:110, sym:'Ds', name:'Darmstadtium', mass:'(281)', cat:'transition', group:10, period:7, phase:'Solid', block:'d', config:'[Rn] 5f¹⁴ 6d⁸ 7s²', discovered:'1994', electron:'—', desc:'Named after Darmstadt, Germany. Predicted to behave like platinum. Exists for microseconds. Only a few atoms have ever been created.' },
+  { n:111, sym:'Rg', name:'Roentgenium', mass:'(282)', cat:'transition', group:11, period:7, phase:'Solid', block:'d', config:'[Rn] 5f¹⁴ 6d¹⁰ 7s¹', discovered:'1994', electron:'—', desc:'Named after Wilhelm Röntgen, discoverer of X-rays. Predicted to have unusual properties due to relativistic effects. Half-life of ~26 seconds.' },
+  { n:112, sym:'Cn', name:'Copernicium', mass:'(285)', cat:'transition', group:12, period:7, phase:'Gas', block:'d', config:'[Rn] 5f¹⁴ 6d¹⁰ 7s²', discovered:'1996', electron:'—', desc:'Named after Nicolaus Copernicus. Predicted to be a gas at room temperature due to relativistic effects — unusual for a metal. Half-life ~29 seconds.' },
+  { n:113, sym:'Nh', name:'Nihonium', mass:'(286)', cat:'post-transition', group:13, period:7, phase:'Solid', block:'p', config:'[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p¹', discovered:'2004', electron:'—', desc:'First element discovered in Asia (Japan). Named after "Nihon" (Japan). Produced by fusing bismuth-209 with zinc-70. Extremely unstable.' },
+  { n:114, sym:'Fl', name:'Flerovium', mass:'(289)', cat:'post-transition', group:14, period:7, phase:'Solid', block:'p', config:'[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p²', discovered:'1999', electron:'—', desc:'Named after Flerov Laboratory of Nuclear Reactions. May be a gas due to relativistic effects. Part of the "island of stability" of superheavy elements.' },
+  { n:115, sym:'Mc', name:'Moscovium', mass:'(290)', cat:'post-transition', group:15, period:7, phase:'Solid', block:'p', config:'[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p³', discovered:'2003', electron:'—', desc:'Named after Moscow Oblast. Synthesized jointly by Russian and American scientists. Decays rapidly to nihonium.' },
+  { n:116, sym:'Lv', name:'Livermorium', mass:'(293)', cat:'post-transition', group:16, period:7, phase:'Solid', block:'p', config:'[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁴', discovered:'2000', electron:'—', desc:'Named after Lawrence Livermore National Laboratory. Predicted to be chemically similar to polonium. Half-life of ~60 milliseconds.' },
+  { n:117, sym:'Ts', name:'Tennessine', mass:'(294)', cat:'halogen', group:17, period:7, phase:'Solid', block:'p', config:'[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁵', discovered:'2010', electron:'—', desc:'Named after Tennessee. May not behave as a typical halogen due to relativistic effects. Second heaviest known element. Extremely short-lived.' },
+  { n:118, sym:'Og', name:'Oganesson', mass:'(294)', cat:'noble', group:18, period:7, phase:'Solid', block:'p', config:'[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁶', discovered:'2002', electron:'—', desc:'Heaviest known element. Named after physicist Yuri Oganessian. Predicted to be a solid despite being a noble gas due to relativistic effects. Only 5 atoms ever created.' },
+];
+
+// Grid layout: [atomicNum, col, row]
+// row 1: H (1,1), He (2,18)
+// etc.
+const GRID = {};
+// Period 1
+GRID[1]=[1,1]; GRID[2]=[18,1];
+// Period 2
+GRID[3]=[1,2]; GRID[4]=[2,2];
+for(let i=5;i<=10;i++) GRID[i]=[i+8,2];
+// Period 3
+GRID[11]=[1,3]; GRID[12]=[2,3];
+for(let i=13;i<=18;i++) GRID[i]=[i+0,3];
+// Period 4
+GRID[19]=[1,4]; GRID[20]=[2,4];
+for(let i=21;i<=36;i++) GRID[i]=[i-18+2,4];
+// Period 5
+GRID[37]=[1,5]; GRID[38]=[2,5];
+for(let i=39;i<=54;i++) GRID[i]=[i-36+2,5];
+// Period 6: La placeholder at col 3
+GRID[55]=[1,6]; GRID[56]=[2,6];
+GRID[57]=[3,6]; // La shown in main table
+// Ce-Lu in lanthanide row (row 9)
+for(let i=58;i<=71;i++) GRID[i]=[i-58+4,9];
+// Hf-Rn
+for(let i=72;i<=86;i++) GRID[i]=[i-72+4,6];
+// Period 7: Fr, Ra
+GRID[87]=[1,7]; GRID[88]=[2,7];
+GRID[89]=[3,7]; // Ac shown in main table
+// Th-Lr in actinide row (row 10)
+for(let i=90;i<=103;i++) GRID[i]=[i-90+4,10];
+// Rf-Og
+for(let i=104;i<=118;i++) GRID[i]=[i-104+4,7];
+
+function buildTable() {
+  const table = document.getElementById('table');
+  const totalRows = 10;
+  const totalCols = 18;
+
+  // Build a 2D grid
+  const cells = {};
+  ELEMENTS.forEach(el => {
+    const [col, row] = GRID[el.n];
+    cells[`${row}-${col}`] = el;
+  });
+
+  for(let r=1; r<=totalRows; r++) {
+    for(let c=1; c<=totalCols; c++) {
+      const el = cells[`${r}-${c}`];
+      if(!el) {
+        // Spacers or labels
+        if(r===9 && c===1) {
+          const label = document.createElement('div');
+          label.style.cssText='grid-column:1/4;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-family:Space Mono,monospace;font-size:0.52rem;color:#5a7090;letter-spacing:0.05em;text-transform:uppercase;';
+          label.textContent='Lanthanides';
+          table.appendChild(label);
+          c=3; continue;
+        }
+        if(r===10 && c===1) {
+          const label = document.createElement('div');
+          label.style.cssText='grid-column:1/4;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-family:Space Mono,monospace;font-size:0.52rem;color:#5a7090;letter-spacing:0.05em;text-transform:uppercase;';
+          label.textContent='Actinides';
+          table.appendChild(label);
+          c=3; continue;
+        }
+        const sp = document.createElement('div');
+        sp.className = 'spacer element';
+        sp.style.visibility='hidden';
+        table.appendChild(sp);
+      } else {
+        const div = document.createElement('div');
+        div.className = `element ${el.cat}`;
+        div.style.animationDelay = `${(r*18+c)*8}ms`;
+        div.dataset.n = el.n;
+        const color = CATEGORIES[el.cat]?.color || '#fff';
+        div.style.setProperty('--c', color);
+        div.innerHTML = `
+          <span class="num">${el.n}</span>
+          <span class="sym">${el.sym}</span>
+          <span class="name">${el.name}</span>
+          <span class="mass">${el.mass}</span>
+        `;
+        div.addEventListener('click', () => openModal(el));
+        table.appendChild(div);
+      }
+    }
+  }
+}
+
+function buildLegend() {
+  const legend = document.getElementById('legend');
+  Object.entries(CATEGORIES).forEach(([key, val]) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `<div class="legend-dot" style="background:${val.color}"></div>${val.label}`;
+    legend.appendChild(item);
+  });
+}
+
+function buildFilters() {
+  const ctrl = document.getElementById('controls');
+  const all = document.createElement('button');
+  all.className = 'filter-btn all active';
+  all.dataset.cat = 'all';
+  all.innerHTML = `All <span class="badge">${ELEMENTS.length}</span>`;
+  ctrl.appendChild(all);
+
+  Object.entries(CATEGORIES).forEach(([key, val]) => {
+    const count = ELEMENTS.filter(e => e.cat === key).length;
+    const btn = document.createElement('button');
+    btn.className = `filter-btn ${key}`;
+    btn.dataset.cat = key;
+    btn.style.color = val.color;
+    btn.style.borderColor = val.color + '55';
+    btn.innerHTML = `${val.label} <span class="badge">${count}</span>`;
+    ctrl.appendChild(btn);
+  });
+
+  ctrl.addEventListener('click', e => {
+    const btn = e.target.closest('.filter-btn');
+    if(!btn) return;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterElements(btn.dataset.cat);
+  });
+}
+
+function filterElements(cat) {
+  const isAll = cat === 'all';
+  document.body.classList.toggle('filtered', !isAll);
+
+  document.querySelectorAll('.element[data-n]').forEach(el => {
+    const elData = ELEMENTS.find(e => e.n == el.dataset.n);
+    if(!elData) return;
+    const match = isAll || elData.cat === cat;
+    el.classList.toggle('dimmed', !match);
+    el.classList.toggle('highlighted', match);
+  });
+}
+
+document.getElementById('search').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase().trim();
+  if(!q) {
+    filterElements('all');
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelector('.filter-btn.all').classList.add('active');
+    return;
+  }
+  document.body.classList.add('filtered');
+  document.querySelectorAll('.element[data-n]').forEach(el => {
+    const elData = ELEMENTS.find(e => e.n == el.dataset.n);
+    if(!elData) return;
+    const match = elData.name.toLowerCase().includes(q) || elData.sym.toLowerCase().includes(q) || String(elData.n).includes(q);
+    el.classList.toggle('dimmed', !match);
+    el.classList.toggle('highlighted', match);
+  });
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  NEW CLEAN 3D ATOM VISUALIZER  — pure Canvas 2D, no background
+// ═══════════════════════════════════════════════════════════════════
+const SC = ['#60c8ff','#ff7eb3','#7bffc8','#ffd166','#c77dff','#ff9f68','#a8ff78'];
+const SN = ['K','L','M','N','O','P','Q'];
+
+function getShells3D(n) {
+  const fills=[[1,2],[2,2],[2,6],[3,2],[3,6],[4,2],[3,10],[4,6],[5,2],[4,10],
+    [5,6],[6,2],[4,14],[5,10],[6,6],[7,2],[5,14],[6,10],[7,6]];
+  const s=[0,0,0,0,0,0,0]; let rem=n;
+  for(const [sh,mx] of fills){if(rem<=0)break;const t=Math.min(rem,mx);s[sh-1]+=t;rem-=t;}
+  let last=6; while(last>0&&s[last]===0)last--;
+  return s.slice(0,last+1);
+}
+
+// 3D → 2D projection with camera tilt
+function project(x, y, z, cx, cy, fov) {
+  const z2 = z + fov;
+  const scale = fov / z2;
+  return { x: cx + x * scale, y: cy - y * scale, scale };
+}
+
+// Rotate point around X and Y axes
+function rotate3D(x, y, z, rx, ry) {
+  // Y rotation
+  const x1 =  x*Math.cos(ry) + z*Math.sin(ry);
+  const z1 = -x*Math.sin(ry) + z*Math.cos(ry);
+  // X rotation
+  const y2 =  y*Math.cos(rx) - z1*Math.sin(rx);
+  const z2 =  y*Math.sin(rx) + z1*Math.cos(rx);
+  return { x: x1, y: y2, z: z2 };
+}
+
+let atomAnim = null;
+let atomCtx  = { rotX: 0.42, rotY: 0, drag: false, px: 0, py: 0 };
+
+function stopAtom() {
+  if(atomAnim) { cancelAnimationFrame(atomAnim); atomAnim = null; }
+  const c = document.getElementById('atomCanvas3d');
+  if(c) {
+    c.onmousedown = c.onmousemove = c.onmouseup = c.onmouseleave = null;
+    c.ontouchstart = c.ontouchmove = c.ontouchend = null;
+  }
+}
+
+function startAtom(atomicNum, elementColor) {
+  stopAtom();
+  const canvas = document.getElementById('atomCanvas3d');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Resize canvas to actual pixel size
+  const rect = canvas.getBoundingClientRect();
+  const dpr  = window.devicePixelRatio || 1;
+  canvas.width  = rect.width  * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  const cx = W/2, cy = H/2;
+  const FOV = Math.min(W, H) * 1.1;
+
+  const shells    = getShells3D(atomicNum);
+  const numShells = shells.length;
+  const maxR      = Math.min(W, H) * 0.42;
+  const nucR      = Math.max(8, Math.min(22, 6 + atomicNum * 0.12));
+  const gap       = numShells > 1 ? (maxR - nucR - 14) / numShells : 0;
+
+  // Parse element color to RGB
+  const tmpC = document.createElement('canvas'); tmpC.width=1; tmpC.height=1;
+  const tmpX = tmpC.getContext('2d'); tmpX.fillStyle=elementColor; tmpX.fillRect(0,0,1,1);
+  const [er, eg, eb] = tmpX.getImageData(0,0,1,1).data;
+
+  // Shell tilts — distinct planes
+  const tilts = [
+    [0,     0   ], [1.05,  0.52], [0.52,  1.05],
+    [1.57,  0.26], [0.26,  1.57], [1.30,  0.78],
+    [0.78,  1.30],
+  ];
+
+  // Build electron state
+  const electrons = [];
+  shells.forEach((count, si) => {
+    if(!count) return;
+    const r      = nucR + 14 + (si+1)*gap;
+    const [tx,tz]= tilts[si % tilts.length];
+    const speed  = 0.012 + (numShells-si)*0.004 + (si===0?0.018:0);
+    for(let ei=0; ei<count; ei++) {
+      electrons.push({
+        si, r,
+        angle: (2*Math.PI*ei/count) + si*0.9,
+        speed,
+        tx, tz,
+        trail: [],
+        color: SC[si % SC.length],
+      });
+    }
+  });
+
+  // Drag interaction
+  const ac = atomCtx;
+  canvas.onmousedown  = e => { ac.drag=true; ac.px=e.clientX; ac.py=e.clientY; };
+  canvas.onmousemove  = e => {
+    if(!ac.drag) return;
+    ac.rotY += (e.clientX-ac.px)*0.007;
+    ac.rotX += (e.clientY-ac.py)*0.007;
+    ac.px=e.clientX; ac.py=e.clientY;
+  };
+  canvas.onmouseup    = canvas.onmouseleave = () => { ac.drag=false; };
+  canvas.ontouchstart = e => { ac.drag=true; ac.px=e.touches[0].clientX; ac.py=e.touches[0].clientY; };
+  canvas.ontouchmove  = e => {
+    ac.rotY += (e.touches[0].clientX-ac.px)*0.009;
+    ac.rotX += (e.touches[0].clientY-ac.py)*0.009;
+    ac.px=e.touches[0].clientX; ac.py=e.touches[0].clientY;
+    e.preventDefault();
+  };
+  canvas.ontouchend   = () => { ac.drag=false; };
+
+  let t = 0;
+  const TRAIL = 30;
+
+  function drawGlowCircle(x, y, r, color, alpha, blur) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur  = blur;
+    ctx.shadowColor = color;
+    const g = ctx.createRadialGradient(x,y,0, x,y,r);
+    g.addColorStop(0, color);
+    g.addColorStop(0.5, color + 'bb');
+    g.addColorStop(1, color + '00');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function frame() {
+    atomAnim = requestAnimationFrame(frame);
+    t++;
+    if(!ac.drag) ac.rotY += 0.005;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const RX = ac.rotX, RY = ac.rotY;
+
+    // ── Collect all objects with depth for painter's sort
+    const objects = [];
+
+    // Orbit rings — sample points along each torus
+    shells.forEach((count, si) => {
+      if(!count) return;
+      const r    = nucR + 14 + (si+1)*gap;
+      const [tx,tz] = tilts[si % tilts.length];
+      const col  = SC[si % SC.length];
+      const pts  = 120;
+      const ringPts = [];
+      for(let i=0; i<=pts; i++) {
+        const a  = (i/pts)*Math.PI*2;
+        let x = r*Math.cos(a), y = 0, z = r*Math.sin(a);
+        // Tilt
+        const ny = y*Math.cos(tx) - z*Math.sin(tx);
+        const nz = y*Math.sin(tx) + z*Math.cos(tx);
+        const nx2 = x*Math.cos(tz) - ny*Math.sin(tz);
+        const ny2 = x*Math.sin(tz) + ny*Math.cos(tz);
+        // Camera rotation
+        const rp = rotate3D(nx2, ny2, nz, RX, RY);
+        const p  = project(rp.x, rp.y, rp.z, cx, cy, FOV);
+        ringPts.push({...p, col});
+      }
+      objects.push({ type:'ring', pts:ringPts, col, si, depth: ringPts.reduce((s,p)=>s+p.scale,0)/ringPts.length });
+    });
+
+    // Electrons + trails
+    electrons.forEach((e, i) => {
+      e.angle += e.speed;
+      let x = e.r*Math.cos(e.angle), y = 0, z = e.r*Math.sin(e.angle);
+      // Tilt
+      const [tx,tz] = [e.tx, e.tz];
+      const ny = y*Math.cos(tx) - z*Math.sin(tx);
+      const nz = y*Math.sin(tx) + z*Math.cos(tx);
+      const nx2 = x*Math.cos(tz) - ny*Math.sin(tz);
+      const ny2 = x*Math.sin(tz) + ny*Math.cos(tz);
+      // Camera rotation
+      const rp = rotate3D(nx2, ny2, nz, RX, RY);
+      const p  = project(rp.x, rp.y, rp.z, cx, cy, FOV);
+      e.trail.push({x:p.x, y:p.y, s:p.scale});
+      if(e.trail.length > TRAIL) e.trail.shift();
+
+      objects.push({ type:'electron', e, p, i, depth: rp.z });
+    });
+
+    // Nucleus
+    const nucRot = rotate3D(0, 0, 0, RX, RY);
+    const nucP   = project(nucRot.x, nucRot.y, nucRot.z, cx, cy, FOV);
+    objects.push({ type:'nucleus', p:nucP, depth: nucRot.z });
+
+    // Sort back-to-front
+    objects.sort((a,b) => a.depth - b.depth);
+
+    // Draw everything
+    objects.forEach(obj => {
+      if(obj.type === 'ring') {
+        const { pts, col, si } = obj;
+        ctx.save();
+        ctx.globalAlpha = 0.28 + si*0.04;
+        ctx.strokeStyle = col;
+        ctx.lineWidth   = 1.2;
+        ctx.shadowBlur  = 6;
+        ctx.shadowColor = col;
+        ctx.beginPath();
+        pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      else if(obj.type === 'electron') {
+        const { e, p, i } = obj;
+        const col  = e.color;
+        const eR   = Math.max(2.5, p.scale * 5.5);
+
+        // Trail
+        if(e.trail.length > 1) {
+          ctx.save();
+          for(let ti=1; ti<e.trail.length; ti++) {
+            const a  = ti/e.trail.length;
+            const t0 = e.trail[ti-1], t1 = e.trail[ti];
+            ctx.globalAlpha = a * 0.6;
+            ctx.strokeStyle = col;
+            ctx.lineWidth   = a * eR * 0.7;
+            ctx.shadowBlur  = 8;
+            ctx.shadowColor = col;
+            ctx.beginPath();
+            ctx.moveTo(t0.x, t0.y);
+            ctx.lineTo(t1.x, t1.y);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Outer halo
+        drawGlowCircle(p.x, p.y, eR*3.5, col, 0.18, 0);
+        // Inner glow
+        drawGlowCircle(p.x, p.y, eR*1.8, col, 0.55, 12);
+        // Core bright dot
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur  = 14;
+        ctx.shadowColor = col;
+        ctx.fillStyle   = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, eR*0.55, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      else if(obj.type === 'nucleus') {
+        const { p } = obj;
+        const pulse = 1 + 0.07*Math.sin(t*0.045);
+        const nr    = nucR * p.scale * pulse;
+        const col   = elementColor;
+
+        // Outermost soft halo
+        drawGlowCircle(p.x, p.y, nr*3.8, col, 0.10, 0);
+        // Mid glow
+        drawGlowCircle(p.x, p.y, nr*2.2, col, 0.22, 20);
+        // Inner glow
+        drawGlowCircle(p.x, p.y, nr*1.3, col, 0.55, 30);
+
+        // Nucleus sphere shading
+        ctx.save();
+        ctx.shadowBlur  = 18;
+        ctx.shadowColor = col;
+        const g = ctx.createRadialGradient(p.x-nr*0.3, p.y-nr*0.3, nr*0.05, p.x, p.y, nr);
+        g.addColorStop(0, '#ffffff');
+        g.addColorStop(0.3, col);
+        g.addColorStop(1, col + '88');
+        ctx.globalAlpha = 1;
+        ctx.fillStyle   = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, nr, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+    });
+  }
+
+  atomAnim = requestAnimationFrame(frame);
+}
+
+function buildShellLegend(atomicNum) {
+  const shells = getShells3D(atomicNum);
+  const leg = document.getElementById('oShellLegend');
+  leg.innerHTML = '';
+  shells.forEach((count, si) => {
+    if(!count) return;
+    const d = document.createElement('div');
+    d.className = 'oleg-item';
+    d.innerHTML = `<div class="oleg-dot" style="background:${SC[si%SC.length]};box-shadow:0 0 6px ${SC[si%SC.length]}"></div>
+      <span>${SN[si]}-shell &nbsp;·&nbsp; ${count} electron${count!==1?'s':''}</span>`;
+    leg.appendChild(d);
+  });
+}
+// ═══════════════════════════════════════════════════════════════════
+
+function openModal(el) {
+  const color = CATEGORIES[el.cat]?.color || '#fff';
+  const box = document.getElementById('modalSymBox');
+  box.style.borderColor = color;
+  box.style.boxShadow = `0 0 30px ${color}44`;
+  document.getElementById('mNum').textContent = el.n;
+  const symEl = document.getElementById('mSym');
+  symEl.textContent = el.sym;
+  symEl.style.color = color;
+  symEl.style.textShadow = `0 0 20px ${color}`;
+  document.getElementById('mName').textContent = el.name;
+  document.getElementById('mName').style.color = color;
+  document.getElementById('mCat').textContent = CATEGORIES[el.cat]?.label || el.cat;
+
+  const stats = [
+    ['Atomic Mass', el.mass + ' u'],
+    ['Period', el.period],
+    ['Group', el.group],
+    ['Phase', el.phase],
+    ['Block', el.block + '-block'],
+    ['Electron Config', el.config],
+    ['Electronegativity', el.electron],
+    ['Discovered', el.discovered],
+  ];
+
+  document.getElementById('mGrid').innerHTML = stats.map(([l,v]) => `
+    <div class="modal-stat">
+      <div class="label">${l}</div>
+      <div class="value">${v}</div>
+    </div>`).join('');
+
+  document.getElementById('mDesc').textContent = el.desc;
+  document.getElementById('oConfigText').textContent = el.config;
+
+  document.getElementById('modalOverlay').classList.add('open');
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    buildShellLegend(el.n);
+    startAtom(el.n, color);
+  }));
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  stopAtom();
+}
+
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if(e.target === document.getElementById('modalOverlay')) closeModal();
+});
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+buildTable();
+buildLegend();
+buildFilters();
+</script>
+</body>
+</html>
